@@ -1,10 +1,6 @@
-echo "# This file is located at 'src/init_command.sh'."
-echo "# It contains the implementation for the 'cdev init' command."
-echo "# The code you write here will be wrapped by a function named 'cdev_init_command()'."
-echo "# Feel free to edit this file; your changes will persist when regenerating."
 inspect_args
 
-VOLUME_NAME=${args[project_name]}
+VOLUME_NAME=${args[--project_name]}
 CODE_SOURCE=${args[--source]}
 EXISTING_VOLUME_NAME=$(container volume ls | awk -v name="${VOLUME_NAME}" 'NR==1{for(i=1;i<=NF;i++)h[$i]=i; next} $h["NAME"]==name || $1==name {print $h["NAME"]}')
 

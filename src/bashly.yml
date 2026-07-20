@@ -1,0 +1,51 @@
+name: cdev
+help: Creates a new isolated developmenet environment
+version: 0.1.0
+
+commands:
+- name: project
+  help: Manage project source code volumes
+  commands:
+  - name: create
+    help: Create new project volume
+    flags:
+    - arg: project_name
+      long: --project_name
+      short: -p
+      required: true
+      help: Unique name of project
+    - arg: git_url
+      long: --source
+      short: -s
+      help: Git source to pull existing project source code from
+
+- name: container
+  help: Manage development environment containers
+  commands:
+  - name: build
+    help: Build a development image from nix flake
+    flags:
+    - arg: image_name
+      long: --image_name
+      short: -i
+      required: true
+      help: Image to create enviroment from
+
+  - name: run
+    help: Start or connect to development container
+    flags:
+    - arg: env_name
+      long: --env_name
+      short: -e
+      required: true
+      help: Unique name of the development environment
+    - arg: project_name
+      long: --project_name
+      short: -p
+      required: true
+      help: Name of project to attach to the environment
+    - arg: image_name
+      long: --image_name
+      short: -i
+      required: true
+      help: Image to create enviroment from
