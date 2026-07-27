@@ -17,7 +17,12 @@ version_command() {
 
 # :command.usage
 cdev_usage() {
-  printf "cdev - Creates a new isolated developmenet environment\n\n"
+  if [[ -n $long_usage ]]; then
+    printf "cdev\n\n"
+    printf "  CDEV is a development workflow tools designed to work with nix and\n  containerization.\n\n"
+  else
+    printf "cdev - CDEV is a development workflow tools designed to work with nix and containerization.\n\n"
+  fi
 
   printf "%s\n" "Usage:"
   printf "  cdev COMMAND\n"
@@ -26,8 +31,8 @@ cdev_usage() {
   echo
   # :command.usage_commands
   printf "%s\n" "Commands:"
-  printf "  %s   Manage project source code volumes\n" "project  "
-  printf "  %s   Manage development environment containers\n" "container"
+  printf "  %s   CDEV projects are container volumes for your project source code.\n" "project"
+  printf "  %s   Manage development environment containers\n" "env    "
   echo
 
   # :command.long_usage
@@ -48,7 +53,12 @@ cdev_usage() {
 
 # :command.usage
 cdev_project_usage() {
-  printf "cdev project - Manage project source code volumes\n\n"
+  if [[ -n $long_usage ]]; then
+    printf "cdev project\n\n"
+    printf "  CDEV projects are container volumes for your project source code.\n\n"
+  else
+    printf "cdev project - CDEV projects are container volumes for your project source code.\n\n"
+  fi
 
   printf "%s\n" "Usage:"
   printf "  cdev project COMMAND\n"
@@ -56,7 +66,7 @@ cdev_project_usage() {
   echo
   # :command.usage_commands
   printf "%s\n" "Commands:"
-  printf "  %s   Create new project volume\n" "create"
+  printf "  %s   Creates a new container volume to persist project source code. The volume can be initialized as empty for new projects are hydrated from an existing git repo.\n" "create"
   echo
 
   # :command.long_usage
@@ -74,7 +84,12 @@ cdev_project_usage() {
 
 # :command.usage
 cdev_project_create_usage() {
-  printf "cdev project create - Create new project volume\n\n"
+  if [[ -n $long_usage ]]; then
+    printf "cdev project create\n\n"
+    printf "  Creates a new container volume to persist project source code. The volume can\n  be initialized as empty for new projects are hydrated from an existing git\n  repo.\n\n"
+  else
+    printf "cdev project create - Creates a new container volume to persist project source code. The volume can be initialized as empty for new projects are hydrated from an existing git repo.\n\n"
+  fi
 
   printf "%s\n" "Usage:"
   printf "  cdev project create [OPTIONS]\n"
@@ -89,12 +104,18 @@ cdev_project_create_usage() {
     # :command.usage_flags
     # :flag.usage
     printf "  %s\n" "--project_name, -p PROJECT_NAME (required)"
-    printf "    Unique name of project\n"
+    printf "    Unique name for the project volume.\n"
     echo
 
     # :flag.usage
     printf "  %s\n" "--source, -s GIT_URL"
-    printf "    Git source to pull existing project source code from\n"
+    printf "    Optional git uri for volume hydration. This will create a temporary\n    container to perform the git clone. The host ssh socket will be forwarded to\n    this container. For password protected identity files add unload them the\n    ssh agent using \"ssh-add\"\n"
+    echo
+
+    # :flag.usage
+    printf "  %s\n" "--branch, -b GIT_BRANCH"
+    printf "    Optional git branch for volume hydration. Requires --source to be set.\n"
+    printf "    %s\n" "Needs: --source"
     echo
 
     # :command.usage_fixed_flags
@@ -106,17 +127,17 @@ cdev_project_create_usage() {
 }
 
 # :command.usage
-cdev_container_usage() {
-  printf "cdev container - Manage development environment containers\n\n"
+cdev_env_usage() {
+  printf "cdev env - Manage development environment containers\n\n"
 
   printf "%s\n" "Usage:"
-  printf "  cdev container COMMAND\n"
-  printf "  cdev container [COMMAND] --help | -h\n"
+  printf "  cdev env COMMAND\n"
+  printf "  cdev env [COMMAND] --help | -h\n"
   echo
   # :command.usage_commands
   printf "%s\n" "Commands:"
   printf "  %s   Build a development image from nix flake\n" "build"
-  printf "  %s   Start or connect to development container\n" "run  "
+  printf "  %s   Start development container\n" "start"
   echo
 
   # :command.long_usage
@@ -133,12 +154,12 @@ cdev_container_usage() {
 }
 
 # :command.usage
-cdev_container_build_usage() {
-  printf "cdev container build - Build a development image from nix flake\n\n"
+cdev_env_build_usage() {
+  printf "cdev env build - Build a development image from nix flake\n\n"
 
   printf "%s\n" "Usage:"
-  printf "  cdev container build [OPTIONS]\n"
-  printf "  cdev container build --help | -h\n"
+  printf "  cdev env build [OPTIONS]\n"
+  printf "  cdev env build --help | -h\n"
   echo
 
   # :command.long_usage
@@ -161,12 +182,12 @@ cdev_container_build_usage() {
 }
 
 # :command.usage
-cdev_container_run_usage() {
-  printf "cdev container run - Start or connect to development container\n\n"
+cdev_env_start_usage() {
+  printf "cdev env start - Start development container\n\n"
 
   printf "%s\n" "Usage:"
-  printf "  cdev container run [OPTIONS]\n"
-  printf "  cdev container run --help | -h\n"
+  printf "  cdev env start [OPTIONS]\n"
+  printf "  cdev env start --help | -h\n"
   echo
 
   # :command.long_usage
@@ -187,7 +208,12 @@ cdev_container_run_usage() {
 
     # :flag.usage
     printf "  %s\n" "--image_name, -i IMAGE_NAME (required)"
-    printf "    Image to create enviroment from\n"
+    printf "    Image to create environment from\n"
+    echo
+
+    # :flag.usage
+    printf "  %s\n" "--[no-]no-ssh-socket"
+    printf "    Disables forwarding the host ssh socket to the container. This strengthens\n    security, but hinders most development work flows. Useful for test/build\n    containers that don't need access to remote source code.\n"
     echo
 
     # :command.usage_fixed_flags
@@ -263,37 +289,341 @@ inspect_args() {
   fi
 }
 
+# :command.user_lib
+# src/lib/bash/is_command_available.sh
+bash_is_command_available() {
+  local COMMAND_NAME=${1}
+
+  if command -v "${COMMAND_NAME}" &> /dev/null; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# src/lib/filters/filter_container_running.sh
+filter_container_running () {
+  return 1
+}
+
+# src/lib/oci/container/container_build.sh
+container_container_build() {
+  local IMAGE_TAG=""
+  local IMAGE_CTX_DIR=$(pwd)
+  local IMAGE_BUILD_ARGS=()
+  local IMAGE_FILE=$(oci_get_definition_file)
+
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      --tag)
+        IMAGE_TAG=${2}
+        shift 2
+        ;;
+      --ctx-dir)
+        IMAGE_CTX_DIR=${2}
+        shift 2
+        ;;
+      --build-arg)
+        IMAGE_BUILD_ARGS+=(--build-arg "${2}")
+        shift 2
+        ;;
+      --file)
+        IMAGE_FILE=${2}
+        shift 2
+        ;;
+      *)
+        echo "Unknown argument: $1"
+        return 1
+        ;;
+    esac
+  done
+
+  container build \
+    -f "${IMAGE_FILE}" \
+    "${IMAGE_BUILD_ARGS[@]}" \
+    "${IMAGE_CTX_DIR}" \
+    -t "${IMAGE_TAG}"
+}
+
+# src/lib/oci/container/container_get_property.sh
+container_container_get_property() {
+  local CONTAINER_NAME=${1}
+  local CONTAINER_PROP=${2}
+
+  echo $(container ls | awk -v name="${CONTAINER_NAME}" -v prop="${CONTAINER_PROP}" 'NR==1{for(i=1;i<=NF;i++)h[$i]=i; next} $h["ID"]==name || $1==name {print $h[prop]}')
+}
+
+# src/lib/oci/container/container_run.sh
+container_container_run() {
+  local IMAGE_NAME=""
+  local SSH_SOCKET_FORWARDING=1
+  local CONTAINER_RUN_ARGS=()
+
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      --image)
+        IMAGE_NAME="${2}"
+        shift 2;
+        ;;
+      --no-ssh-socket)
+        SSH_SOCKET_FORWARDING=0
+        shift 1
+        ;;
+      --volume)
+        CONTAINER_RUN_ARGS+=(-v "${2}")
+        shift 2
+        ;;
+      --name)
+        CONTAINER_RUN_ARGS+=(--name "${2}")
+        shift 2
+        ;;
+      --rm)
+        CONTAINER_RUN_ARGS+=(--rm)
+        shift 1
+        ;;
+      --detach)
+        CONTAINER_RUN_ARGS+=(--detach)
+        shift 1
+        ;;
+      --interactive)
+        CONTAINER_RUN_ARGS+=(--interactive)
+        shift 1
+        ;;
+      --tty)
+        CONTAINER_RUN_ARGS+=(--tty)
+        shift 1
+        ;;
+      --entrypoint)
+        CONTAINER_RUN_ARGS+=(--entrypoint "${2}")
+        shift 2
+        ;;
+      --env)
+        CONTAINER_RUN_ARGS+=(-e "${2}")
+        shift 2
+        ;;
+      --)
+        shift 1;
+        break
+        ;;
+      *)
+        echo "Unknown argument: $1"
+        return 1
+        ;;
+    esac
+  done
+
+  if (( ${SSH_SOCKET_FORWARDING} )); then
+    CONTAINER_RUN_ARGS+=(--ssh)
+    CONTAINER_RUN_ARGS+=(--env "GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=accept-new")
+  fi
+
+  container run \
+    "${CONTAINER_RUN_ARGS[@]}" \
+    -p 2222:22 \
+    "${IMAGE_NAME}" \
+    "$@"
+}
+
+# src/lib/oci/container/container_start.sh
+container_container_start() {
+  local CONTAINER_NAME=${1}
+
+  container start "${CONTAINER_NAME}"
+}
+
+# src/lib/oci/container/is_available.sh
+container_is_available () {
+  if bash_is_command_available "container"; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# src/lib/oci/container/volume_create.sh
+container_volume_create() {
+  local PROJECT_NAME=${1}
+  local PROJECT_LABELS=(--label "project=${PROJECT_NAME}")
+  shift 1
+
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      --label)
+        PROJECT_LABELS+=(--label "${2}")
+        shift 2
+        ;;
+      *)
+        echo "Unknown argument: $1"
+        return 1
+        ;;
+    esac
+  done
+
+  container volume create \
+    "${PROJECT_LABELS[@]}" \
+    "${PROJECT_NAME}"
+}
+
+# src/lib/oci/container/volume_get_property.sh
+container_volume_get_property() {
+  local VOLUME_NAME=${1}
+  local VOLUME_PROP=${2}
+
+  echo $(container volume ls | awk -v name="${VOLUME_NAME}" -v prop="${VOLUME_PROP}" 'NR==1{for(i=1;i<=NF;i++)h[$i]=i; next} $h["NAME"]==name || $1==name {print $h[prop]}')
+}
+
+# src/lib/oci/container_build.sh
+oci_container_build() {
+  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+    echo $(container_container_build "$@")
+  else
+    return 1
+  fi
+}
+
+# src/lib/oci/container_get_property.sh
+oci_container_get_property() {
+  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+    echo $(container_container_get_property "$@")
+  else
+    return 1
+  fi
+}
+
+# src/lib/oci/container_run.sh
+oci_container_run() {
+  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+    echo $(container_container_run "$@")
+  else
+    return 1
+  fi
+}
+
+# src/lib/oci/container_start.sh
+oci_container_start() {
+  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+    echo $(container_container_start "$@")
+  else
+    return 1
+  fi
+}
+
+# src/lib/oci/get_cdev_definition_file.sh
+oci_get_cdev_definition_file() {
+  echo ${SCRIPT_DIR}/lib/CDev.Containerfile
+}
+
+# src/lib/oci/get_cdev_image_tag.sh
+oci_get_cdev_image_tag() {
+  echo "cdev-base:latest"
+}
+
+# src/lib/oci/get_definition_file.sh
+oci_get_definition_file() {
+  echo ${SCRIPT_DIR}/lib/Containerfile
+}
+
+# src/lib/oci/volume_create.sh
+oci_volume_create() {
+  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+    echo $(container_volume_create "$@")
+  else
+    return 1
+  fi
+}
+
+# src/lib/oci/volume_get_property.sh
+oci_volume_get_property() {
+  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+    echo $(container_volume_get_property "$@")
+  else
+    return 1
+  fi
+}
+
+# src/lib/ssh/collect_public_keys.sh
+ssh_collect_public_keys() {
+  local SSH_DIR=${1:-$HOME/.ssh}
+  local SSH_PUBLIC_KEYS=()
+
+  shopt -s nullglob
+  for KEY_FILE in "${SSH_DIR}"/*.pub; do
+      KEY_CONTENT="$(<"${KEY_FILE}")"
+      [[ "${KEY_CONTENT}" =~ [^[:space:]] ]] && SSH_PUBLIC_KEYS+=("${KEY_CONTENT}")
+  done
+  shopt -u nullglob
+
+  local SSH_KEY_DATA=$(printf '%s\n' "${SSH_PUBLIC_KEYS[@]}")
+  echo "${SSH_KEY_DATA}"
+}
+
+# src/lib/validations/validate_dir_exists.sh
+validate_dir_exists() {
+  if [[ ! -d "$1" ]]; then
+    echo "must be an existing directory"
+  fi
+}
+
+# src/lib/validations/validate_file_exists.sh
+validate_file_exists() {
+  if [[ ! -f "$1" ]]; then
+    echo "must be an existing file"
+  fi
+}
+
+# src/lib/validations/validate_image_exists.sh
+
+# src/lib/validations/validate_integer.sh
+validate_integer() {
+  if ! [[ "$1" =~ ^[0-9]+$ ]]; then
+    echo "must be an integer"
+  fi
+}
+
+# src/lib/validations/validate_not_empty.sh
+validate_not_empty() {
+  if [[ -z "$1" ]]; then
+    echo "must not be empty"
+  fi
+}
+
+# src/lib/validations/validate_volume_exits.sh
+
 # :command.command_functions
 
 # :command.function
 cdev_project_create_command() {
 
-  # src/project_create_command.sh
-  inspect_args
+  # src/commands/project/create.sh
+  local VOLUME_NAME=${args[--project_name]}
+  local CODE_SOURCE=${args[--source]}
+  local CODE_BRANCH=${args[--branch]}
 
-  VOLUME_NAME=${args[--project_name]}
-  CODE_SOURCE=${args[--source]}
-  EXISTING_VOLUME_NAME=$(container volume ls | awk -v name="${VOLUME_NAME}" 'NR==1{for(i=1;i<=NF;i++)h[$i]=i; next} $h["NAME"]==name || $1==name {print $h["NAME"]}')
+  local EXISTING_VOLUME_NAME=$(oci_volume_get_property ${VOLUME_NAME} "NAME")
 
-  if [ -n "${EXISTING_VOLUME_NAME}" ]; then
-    echo "Project already exists"
+  local GIT_CLONE_ARGS=()
+  if [[ -n "${CODE_BRANCH}" ]]; then
+    GIT_CLONE_ARGS=(--branch "${CODE_BRANCH}")
+  fi
+
+  if [[ -n "${EXISTING_VOLUME_NAME}" ]]; then
+    echo "Project volume already exists"
     exit 1
   else
-    if [ -n "${CODE_SOURCE}" ]; then
-      echo "Hydrating project code from source"
-      container run \
+    if [[ -n "${CODE_SOURCE}" ]]; then
+      echo "Hydrating project volume from git source"
+      oci_volume_create "${VOLUME_NAME}" --label "source=${CODE_SOURCE}"
+
+      oci_container_run \
+        --image alpine/git \
         --rm \
-        --ssh \
-        --env "GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=accept-new" \
-        -v ${VOLUME_NAME}:/workspace \
-        alpine/git \
-        clone ${CODE_SOURCE} /workspace/code
+        --volume "${VOLUME_NAME}:/workspace" \
+        -- \
+       clone "${GIT_CLONE_ARGS[*]}" "${CODE_SOURCE}" /workspace/code
+
     else
       echo "Creating empty project"
-      container volume create \
-        --label project=${VOLUME_NAME} \
-        --label source=${CODE_SOURCE} \
-        ${VOLUME_NAME}
+      oci_volume_create "${VOLUME_NAME}" --label "source=NONE"
     fi
 
     echo "Project created"
@@ -302,62 +632,65 @@ cdev_project_create_command() {
 }
 
 # :command.function
-cdev_container_build_command() {
+cdev_env_build_command() {
 
-  # src/container_build_command.sh
-  inspect_args
+  # src/commands/env/build.sh
+  local IMAGE_NAME=${args[--image_name]}
+  local CDEV_IMAGE_TAG=$(oci_get_cdev_image_tag)
+  local CDEV_CONTAINER_FILE=$(oci_get_cdev_definition_file)
 
-  IMAGE_NAME=${args[--image_name]}
-  SCRIPT_DIR=$(dirname -- "$( readlink -f -- "$0"; )";)
+  oci_container_build \
+    --tag "${CDEV_IMAGE_TAG}" \
+    --file "${CDEV_CONTAINER_FILE}" \
+    --ctx-dir "$(dirname "${CDEV_CONTAINER_FILE}")"
 
-  container build -f ${SCRIPT_DIR}/lib/Dockerfile $(pwd) -t ${IMAGE_NAME}:latest
-
-  container run \
-      -d \
-      --rm \
-      --name ${IMAGE_NAME}_LOCK_EXTRACTION \
-      ${IMAGE_NAME} sleep 5
-
-  container cp ${IMAGE_NAME}_LOCK_EXTRACTION:/workspace/flake.lock $(pwd)/flake.lock
+  oci_container_build \
+    --tag "${IMAGE_NAME}:latest" \
+    --build-arg "BASE_IMAGE=${CDEV_IMAGE_TAG}"
 
 }
 
 # :command.function
-cdev_container_run_command() {
+cdev_env_start_command() {
 
-  # src/container_run_command.sh
-  inspect_args
+  # src/commands/env/start.sh
+  local VOLUME_NAME=${args[--project_name]}
+  local CONTAINER_NAME=${args[--env_name]}
+  local IMAGE_NAME=${args[--image_name]}
+  local CODE_SOURCE=${args[--source]}
+  local DISABLE_SSH_SOCKET=${args[--no-ssh-socket]}
 
-  VOLUME_NAME=${args[--project_name]}
-  CONTAINER_NAME=${args[--env_name]}
-  IMAGE_NAME=${args[--image_name]}
-  CODE_SOURCE=${args[--source]}
-  EXISTING_VOLUME_NAME=$(container volume ls | awk -v name="${VOLUME_NAME}" 'NR==1{for(i=1;i<=NF;i++)h[$i]=i; next} $h["NAME"]==name || $1==name {print $h["NAME"]}')
-  CONTAINER_STATE=$(container ls | awk -v name="${CONTAINER_NAME}" 'NR==1{for(i=1;i<=NF;i++)h[$i]=i; next} $h["ID"]==name || $1==name {print $h["STATE"]}')
+  local EXISTING_VOLUME_NAME=$(oci_volume_get_property ${VOLUME_NAME} "NAME")
+  local CONTAINER_STATE=$(oci_container_get_property ${CONTAINER_NAME} "STATE")
 
-  if [ -n "${EXISTING_VOLUME_NAME}" ]; then
-    echo "Creating environment for ${EXISTING_VOLUME_NAME}"
-  else
-    echo "No project volume ${EXISTING_VOLUME_NAME}. Please run 'cdev project create' first"
+  local CONTAINER_RUN_ARGS=()
+  if [[ ${DISABLE_SSH_SOCKET} ]]; then
+    CONTAINER_RUN_ARGS=(--no-ssh-socket)
   fi
 
-  if [ "${CONTAINER_STATE}" = "running" ]; then
+  if [[ -z "${EXISTING_VOLUME_NAME}" ]]; then
+    echo "No project volume ${EXISTING_VOLUME_NAME}. Please run 'cdev project create' first"
+    exit 1
+  fi
+
+  set -ex
+
+  if [[ "${CONTAINER_STATE}" = "running" ]]; then
     echo "Attaching to existing development container"
-  elif [ -n "${CONTAINER_STATE}" ]; then
+  elif [[ -n "${CONTAINER_STATE}" ]]; then
     echo "Starting development container"
-    container start ${CONTAINER_NAME}
+    oci_container_start ${CONTAINER_NAME}
   else
     echo "Creating new development container"
-    container run \
-      -dit \
-      --name ${CONTAINER_NAME} \
-      -v ${VOLUME_NAME}:/workspace/code \
-      --ssh \
-      --entrypoint sleep \
-      ${IMAGE_NAME} infinity
+    oci_container_run \
+      --image "${IMAGE_NAME}" \
+      --name "${CONTAINER_NAME}" \
+      --detach \
+      --volume "${VOLUME_NAME}:/workspace/code" \
+      --env "SSH_PUBKEY=$(ssh_collect_public_keys)" \
+      "${CONTAINER_RUN_ARGS[@]}" \
+      --
   fi
-
-  container exec -it ${CONTAINER_NAME} /bin/sh -c "nix develop --command bash"
 
 }
 
@@ -387,6 +720,21 @@ parse_requirements() {
     esac
   done
 
+  # :command.dependencies_filter
+  missing_deps=
+  # :dependency.filter
+  if ! command -v container >/dev/null 2>&1; then
+    printf "missing dependency: containerization\n" >&2
+    printf "%s\n\n" "CDEV requires one of the following containerization tools: \"container (apple)\"" >&2
+    missing_deps=1
+  else
+    deps['containerization']="$(command -v container | head -n1)"
+  fi
+
+  if [[ -n $missing_deps ]]; then
+    exit 1
+  fi
+
   # :command.command_filter
   action=${1:-}
 
@@ -400,10 +748,10 @@ parse_requirements() {
       shift $#
       ;;
 
-    container)
-      action="container"
+    env)
+      action="env"
       shift
-      cdev_container_parse_requirements "$@"
+      cdev_env_parse_requirements "$@"
       shift $#
       ;;
 
@@ -569,6 +917,20 @@ cdev_project_create_parse_requirements() {
         fi
         ;;
 
+      # :flag.case
+      --branch | -b)
+
+        # :flag.case_arg
+        if [[ -n ${2+x} ]]; then
+          args['--branch']="$2"
+          shift
+          shift
+        else
+          printf "%s\n" "--branch requires an argument: --branch, -b GIT_BRANCH" >&2
+          exit 1
+        fi
+        ;;
+
       -?*)
         printf "invalid option: %s\n" "$key" >&2
         exit 1
@@ -591,10 +953,17 @@ cdev_project_create_parse_requirements() {
     exit 1
   fi
 
+  # :command.needy_flags_filter
+  # :flag.needs
+  if [[ -n ${args['--branch']+x} ]] && [[ -z "${args[--source]:-}" ]]; then
+    printf "%s\n" "--branch needs --source" >&2
+    exit 1
+  fi
+
 }
 
 # :command.parse_requirements
-cdev_container_parse_requirements() {
+cdev_env_parse_requirements() {
   local key
 
   # :command.fixed_flags_filter
@@ -603,7 +972,7 @@ cdev_container_parse_requirements() {
     case "$key" in
       --help | -h)
         long_usage=yes
-        cdev_container_usage
+        cdev_env_usage
         exit
         ;;
 
@@ -623,20 +992,20 @@ cdev_container_parse_requirements() {
     build)
       action="build"
       shift
-      cdev_container_build_parse_requirements "$@"
+      cdev_env_build_parse_requirements "$@"
       shift $#
       ;;
 
-    run)
-      action="run"
+    start)
+      action="start"
       shift
-      cdev_container_run_parse_requirements "$@"
+      cdev_env_start_parse_requirements "$@"
       shift $#
       ;;
 
     # :command.command_fallback
     "")
-      cdev_container_usage >&2
+      cdev_env_usage >&2
       exit 1
       ;;
 
@@ -671,7 +1040,7 @@ cdev_container_parse_requirements() {
 }
 
 # :command.parse_requirements
-cdev_container_build_parse_requirements() {
+cdev_env_build_parse_requirements() {
   local key
 
   # :command.fixed_flags_filter
@@ -680,7 +1049,7 @@ cdev_container_build_parse_requirements() {
     case "$key" in
       --help | -h)
         long_usage=yes
-        cdev_container_build_usage
+        cdev_env_build_usage
         exit
         ;;
 
@@ -692,7 +1061,7 @@ cdev_container_build_parse_requirements() {
   done
 
   # :command.command_filter
-  action="container build"
+  action="env build"
 
   # :command.parse_requirements_while
   while [[ $# -gt 0 ]]; do
@@ -737,7 +1106,7 @@ cdev_container_build_parse_requirements() {
 }
 
 # :command.parse_requirements
-cdev_container_run_parse_requirements() {
+cdev_env_start_parse_requirements() {
   local key
 
   # :command.fixed_flags_filter
@@ -746,7 +1115,7 @@ cdev_container_run_parse_requirements() {
     case "$key" in
       --help | -h)
         long_usage=yes
-        cdev_container_run_usage
+        cdev_env_start_usage
         exit
         ;;
 
@@ -758,7 +1127,7 @@ cdev_container_run_parse_requirements() {
   done
 
   # :command.command_filter
-  action="container run"
+  action="env start"
 
   # :command.parse_requirements_while
   while [[ $# -gt 0 ]]; do
@@ -806,6 +1175,19 @@ cdev_container_run_parse_requirements() {
         fi
         ;;
 
+      # :flag.case
+      --no-ssh-socket)
+
+        # :flag.case_no_arg
+        args['--no-ssh-socket']=1
+        shift
+        ;;
+
+      --no-no-ssh-socket)
+        unset "args[--no-ssh-socket]"
+        shift
+        ;;
+
       -?*)
         printf "invalid option: %s\n" "$key" >&2
         exit 1
@@ -838,11 +1220,38 @@ cdev_container_run_parse_requirements() {
 
 }
 
+# :command.user_hooks
+before_hook() {
+  # src/before.sh
+  echo "==[ Before Hook Called ]=="
+  inspect_args
+
+  if container_is_available; then
+    CONTAINERIZATION_TOOL='container'
+  else
+    CONTAINERIZATION_TOOL=''
+  fi
+
+  if [[ -z "${CONTAINERIZATION_TOOL}" ]]; then
+    echo "No supported containerization tool is available"
+    exit 1
+  fi
+}
+
+after_hook() {
+  # src/after.sh
+  echo "==[ After Hook Called ]=="
+}
+
 # :command.initialize
 initialize() {
   declare -g version="0.1.0"
   set -e
 
+  # src/initialize.sh
+
+  # Set global variable containing the cdev script directory
+  SCRIPT_DIR=$(dirname -- "$( readlink -f -- "$0"; )";)
 }
 
 # :command.run
@@ -856,14 +1265,17 @@ run() {
 
   normalize_input "$@"
   parse_requirements "${input[@]}"
+  before_hook
 
   case "$action" in
     "project") cdev_project_command ;;
     "project create") cdev_project_create_command ;;
-    "container") cdev_container_command ;;
-    "container build") cdev_container_build_command ;;
-    "container run") cdev_container_run_command ;;
+    "env") cdev_env_command ;;
+    "env build") cdev_env_build_command ;;
+    "env start") cdev_env_start_command ;;
   esac
+
+  after_hook
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
