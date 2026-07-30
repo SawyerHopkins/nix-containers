@@ -136,8 +136,9 @@ cdev_env_usage() {
   echo
   # :command.usage_commands
   printf "%s\n" "Commands:"
-  printf "  %s   Build a development image from nix flake\n" "build"
-  printf "  %s   Start development container\n" "start"
+  printf "  %s   Build a development image from nix flake\n" "build  "
+  printf "  %s   Start development container\n" "start  "
+  printf "  %s   Open ssh connection development container\n" "connect"
   echo
 
   # :command.long_usage
@@ -214,6 +215,34 @@ cdev_env_start_usage() {
     # :flag.usage
     printf "  %s\n" "--[no-]no-ssh-socket"
     printf "    Disables forwarding the host ssh socket to the container. This strengthens\n    security, but hinders most development work flows. Useful for test/build\n    containers that don't need access to remote source code.\n"
+    echo
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cdev_env_connect_usage() {
+  printf "cdev env connect - Open ssh connection development container\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cdev env connect [OPTIONS]\n"
+  printf "  cdev env connect --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    # :command.usage_options
+    printf "%s\n" "Options:"
+
+    # :command.usage_flags
+    # :flag.usage
+    printf "  %s\n" "--env_name, -e ENV_NAME (required)"
+    printf "\n"
     echo
 
     # :command.usage_fixed_flags
@@ -350,7 +379,14 @@ container_container_get_property() {
   local CONTAINER_NAME=${1}
   local CONTAINER_PROP=${2}
 
-  echo $(container ls | awk -v name="${CONTAINER_NAME}" -v prop="${CONTAINER_PROP}" 'NR==1{for(i=1;i<=NF;i++)h[$i]=i; next} $h["ID"]==name || $1==name {print $h[prop]}')
+  if [[ "${CONTAINER_PROP}" == "STATE" ]]; then
+    echo $(container inspect "${CONTAINER_NAME}" | jq '.[0].status.state')
+  elif [[ "${CONTAINER_PROP}" == "SSH_PORT" ]]; then
+    echo $(container inspect "${CONTAINER_NAME}" | jq '.[0].configuration.publishedPorts[] | select(.containerPort == 22) | .hostPort')
+  else
+    echo "Unable to extract container property ${CONTAINER_PROP}"
+    exit 1
+  fi
 }
 
 # src/lib/oci/container/container_run.sh
@@ -420,7 +456,7 @@ container_container_run() {
   # @TODO make the port dynamic
   container run \
     "${CONTAINER_RUN_ARGS[@]}" \
-    -p 2222:22 \
+    -p "$(ssh_port_generate):22" \
     "${IMAGE_NAME}" \
     "$@"
 }
@@ -470,7 +506,12 @@ container_volume_get_property() {
   local VOLUME_NAME=${1}
   local VOLUME_PROP=${2}
 
-  echo $(container volume ls | awk -v name="${VOLUME_NAME}" -v prop="${VOLUME_PROP}" 'NR==1{for(i=1;i<=NF;i++)h[$i]=i; next} $h["NAME"]==name || $1==name {print $h[prop]}')
+  if [[ "${VOLUME_PROP}" == "NAME" ]]; then
+    echo $(container volume inspect "${VOLUME_NAME}" | jq '.[0].configuration.name')
+  else
+    echo "Unable to extract volume property ${VOLUME_PROP}"
+    exit 1
+  fi
 }
 
 # src/lib/oci/container_build.sh
@@ -556,6 +597,47 @@ ssh_collect_public_keys() {
 
   local SSH_KEY_DATA=$(printf '%s\n' "${SSH_PUBLIC_KEYS[@]}")
   echo "${SSH_KEY_DATA}"
+}
+
+# src/lib/ssh/open_connection.sh
+ssh_open_connection() {
+  local SSH_PORT="22"
+  local SSH_USER="root"
+  local SSH_HOST="localhost"
+
+  while [[ $# -gt 0 ]]; do
+    case "${1}" in
+      --port)
+        SSH_PORT=${2}
+        shift 2
+        ;;
+      --user)
+        SSH_USER=${2}
+        shift 2
+        ;;
+      --host)
+        SSH_HOST+=(--build-arg "${2}")
+        shift 2
+        ;;
+      *)
+        echo "Unknown argument: $1"
+        return 1
+        ;;
+    esac
+  done
+
+  # @TODO Once host ssh key is stable
+  # we don't need to ignore this anymore
+  ssh \
+    -p "${SSH_PORT}" \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    "${SSH_USER}@${SSH_HOST}"
+}
+
+# src/lib/ssh/port_generate.sh
+ssh_port_generate() {
+  echo $((RANDOM % (65535 - 49152 + 1) + 49152))
 }
 
 # src/lib/validations/validate_dir_exists.sh
@@ -696,6 +778,22 @@ cdev_env_start_command() {
   # @TODO automatically open ssh connection to container
 }
 
+# :command.function
+cdev_env_connect_command() {
+
+  # src/commands/env/connect.sh
+  local CONTAINER_NAME=${args[--env_name]}
+  local CONTAINER_SSH_PORT=$(oci_container_get_property ${CONTAINER_NAME} "SSH_PORT")
+
+  if [[ -z "${CONTAINER_SSH_PORT}" ]]; then
+    echo "Could not find ssh port for container ${CONTAINER_NAME}"
+    exit 1
+  fi
+
+  ssh_open_connection \
+    --port ${CONTAINER_SSH_PORT}
+}
+
 # :command.parse_requirements
 parse_requirements() {
   local key
@@ -731,6 +829,15 @@ parse_requirements() {
     missing_deps=1
   else
     deps['containerization']="$(command -v container | head -n1)"
+  fi
+
+  # :dependency.filter
+  if ! command -v jq >/dev/null 2>&1; then
+    printf "missing dependency: json_parser\n" >&2
+    printf "%s\n\n" "jq is required to parse container information" >&2
+    missing_deps=1
+  else
+    deps['json_parser']="$(command -v jq | head -n1)"
   fi
 
   if [[ -n $missing_deps ]]; then
@@ -1005,6 +1112,13 @@ cdev_env_parse_requirements() {
       shift $#
       ;;
 
+    connect)
+      action="connect"
+      shift
+      cdev_env_connect_parse_requirements "$@"
+      shift $#
+      ;;
+
     # :command.command_fallback
     "")
       cdev_env_usage >&2
@@ -1222,6 +1336,72 @@ cdev_env_start_parse_requirements() {
 
 }
 
+# :command.parse_requirements
+cdev_env_connect_parse_requirements() {
+  local key
+
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cdev_env_connect_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="env connect"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      # :flag.case
+      --env_name | -e)
+
+        # :flag.case_arg
+        if [[ -n ${2+x} ]]; then
+          args['--env_name']="$2"
+          shift
+          shift
+        else
+          printf "%s\n" "--env_name requires an argument: --env_name, -e ENV_NAME" >&2
+          exit 1
+        fi
+        ;;
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        printf "invalid argument: %s\n" "$key" >&2
+        exit 1
+
+        ;;
+
+    esac
+  done
+
+  # :command.required_flags_filter
+  if [[ -z ${args['--env_name']+x} ]]; then
+    printf "missing required flag: --env_name, -e ENV_NAME\n" >&2
+    exit 1
+  fi
+
+}
+
 # :command.user_hooks
 before_hook() {
   # src/before.sh
@@ -1277,6 +1457,7 @@ run() {
     "env") cdev_env_command ;;
     "env build") cdev_env_build_command ;;
     "env start") cdev_env_start_command ;;
+    "env connect") cdev_env_connect_command ;;
   esac
 
   after_hook

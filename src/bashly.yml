@@ -7,6 +7,9 @@ dependencies:
   containerization:
     command: ['container']
     help: 'CDEV requires one of the following containerization tools: "container (apple)"'
+  json_parser:
+    command: ['jq']
+    help: 'jq is required to parse container information'
 commands:
 - name: project
   help: >
@@ -78,3 +81,12 @@ commands:
         Disables forwarding the host ssh socket to the container. This strengthens
         security, but hinders most development work flows. Useful for test/build
         containers that don't need access to remote source code.
+
+  - name: connect
+    filename: commands/env/connect.sh
+    help: Open ssh connection development container
+    flags:
+    - arg: env_name
+      long: --env_name
+      short: -e
+      required: true

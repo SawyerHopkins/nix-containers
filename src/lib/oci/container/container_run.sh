@@ -64,7 +64,7 @@ container_container_run() {
   # @TODO make the port dynamic
   container run \
     "${CONTAINER_RUN_ARGS[@]}" \
-    -p 2222:22 \
+    -p "$(ssh_port_generate):22" \
     "${IMAGE_NAME}" \
     "$@"
 }
