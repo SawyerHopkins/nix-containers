@@ -22,7 +22,7 @@ else
       --rm \
       --volume "${VOLUME_NAME}:/workspace" \
       -- \
-     clone "${GIT_CLONE_ARGS[*]}" "${CODE_SOURCE}" /workspace/code
+     clone "${GIT_CLONE_ARGS[@]}" "${CODE_SOURCE}" /workspace/code
 
   else
     echo "Creating empty project"

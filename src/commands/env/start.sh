@@ -19,7 +19,7 @@ fi
 
 set -ex
 
-if [[ "${CONTAINER_STATE}" = "running" ]]; then
+if [[ "${CONTAINER_STATE}" == "running" ]]; then
   echo "Attaching to existing development container"
 elif [[ -n "${CONTAINER_STATE}" ]]; then
   echo "Starting development container"
@@ -30,7 +30,7 @@ else
     --image "${IMAGE_NAME}" \
     --name "${CONTAINER_NAME}" \
     --detach \
-    --volume "${VOLUME_NAME}:/workspace/code" \
+    --volume "${VOLUME_NAME}:/workspace/home" \
     --env "SSH_PUBKEY=$(ssh_collect_public_keys)" \
     "${CONTAINER_RUN_ARGS[@]}" \
     --

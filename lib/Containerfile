@@ -6,8 +6,8 @@ ENV NIX_CONFIG="experimental-features = nix-command flakes"
 
 RUN nix-channel --update
 
-ARG APP_DIR=/workspace/code
+ARG APP_DIR=/workspace
 WORKDIR ${APP_DIR}
-COPY flake.* /${APP_DIR}
+COPY flake.* ${APP_DIR}
 
 RUN nix develop --command true

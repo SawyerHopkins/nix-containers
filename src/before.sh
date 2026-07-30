@@ -10,6 +10,8 @@
 echo "==[ Before Hook Called ]=="
 inspect_args
 
+set -ex
+
 if container_is_available; then
   CONTAINERIZATION_TOOL='container'
 else

@@ -417,6 +417,7 @@ container_container_run() {
     CONTAINER_RUN_ARGS+=(--env "GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=accept-new")
   fi
 
+  # @TODO make the port dynamic
   container run \
     "${CONTAINER_RUN_ARGS[@]}" \
     -p 2222:22 \
@@ -474,7 +475,7 @@ container_volume_get_property() {
 
 # src/lib/oci/container_build.sh
 oci_container_build() {
-  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+  if [[ "${CONTAINERIZATION_TOOL}" == "container" ]]; then
     echo $(container_container_build "$@")
   else
     return 1
@@ -483,7 +484,7 @@ oci_container_build() {
 
 # src/lib/oci/container_get_property.sh
 oci_container_get_property() {
-  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+  if [[ "${CONTAINERIZATION_TOOL}" == "container" ]]; then
     echo $(container_container_get_property "$@")
   else
     return 1
@@ -492,7 +493,7 @@ oci_container_get_property() {
 
 # src/lib/oci/container_run.sh
 oci_container_run() {
-  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+  if [[ "${CONTAINERIZATION_TOOL}" == "container" ]]; then
     echo $(container_container_run "$@")
   else
     return 1
@@ -501,7 +502,7 @@ oci_container_run() {
 
 # src/lib/oci/container_start.sh
 oci_container_start() {
-  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+  if [[ "${CONTAINERIZATION_TOOL}" == "container" ]]; then
     echo $(container_container_start "$@")
   else
     return 1
@@ -525,7 +526,7 @@ oci_get_definition_file() {
 
 # src/lib/oci/volume_create.sh
 oci_volume_create() {
-  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+  if [[ "${CONTAINERIZATION_TOOL}" == "container" ]]; then
     echo $(container_volume_create "$@")
   else
     return 1
@@ -534,7 +535,7 @@ oci_volume_create() {
 
 # src/lib/oci/volume_get_property.sh
 oci_volume_get_property() {
-  if [[ "${CONTAINERIZATION_TOOL}" = "container" ]]; then
+  if [[ "${CONTAINERIZATION_TOOL}" == "container" ]]; then
     echo $(container_volume_get_property "$@")
   else
     return 1
@@ -619,7 +620,7 @@ cdev_project_create_command() {
         --rm \
         --volume "${VOLUME_NAME}:/workspace" \
         -- \
-       clone "${GIT_CLONE_ARGS[*]}" "${CODE_SOURCE}" /workspace/code
+       clone "${GIT_CLONE_ARGS[@]}" "${CODE_SOURCE}" /workspace/code
 
     else
       echo "Creating empty project"
@@ -675,7 +676,7 @@ cdev_env_start_command() {
 
   set -ex
 
-  if [[ "${CONTAINER_STATE}" = "running" ]]; then
+  if [[ "${CONTAINER_STATE}" == "running" ]]; then
     echo "Attaching to existing development container"
   elif [[ -n "${CONTAINER_STATE}" ]]; then
     echo "Starting development container"
@@ -686,12 +687,13 @@ cdev_env_start_command() {
       --image "${IMAGE_NAME}" \
       --name "${CONTAINER_NAME}" \
       --detach \
-      --volume "${VOLUME_NAME}:/workspace/code" \
+      --volume "${VOLUME_NAME}:/workspace/home" \
       --env "SSH_PUBKEY=$(ssh_collect_public_keys)" \
       "${CONTAINER_RUN_ARGS[@]}" \
       --
   fi
 
+  # @TODO automatically open ssh connection to container
 }
 
 # :command.parse_requirements
@@ -1225,6 +1227,8 @@ before_hook() {
   # src/before.sh
   echo "==[ Before Hook Called ]=="
   inspect_args
+
+  set -ex
 
   if container_is_available; then
     CONTAINERIZATION_TOOL='container'
